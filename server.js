@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import yahooFinance from 'yahoo-finance2';
 
 const app = express();
@@ -7,6 +8,10 @@ const PORT = process.env.PORT || 5000; // Используем переменн�
 
 // Используем CORS
 app.use(cors());
+
+// Путь к статическим файлам фронтенда (после сборки)
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Роут для получения данных по тикеру
 app.get('/api/stock/:ticker', async (req, res) => {
@@ -44,6 +49,11 @@ app.get('/api/stock/:ticker', async (req, res) => {
     console.error('Ошибка при запросе данных:', error.message);
     res.status(500).json({ error: 'Ошибка при запросе данных', details: error.message });
   }
+});
+
+// Роут для всех остальных запросов (используется для SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Запуск сервера
