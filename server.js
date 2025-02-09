@@ -3,7 +3,7 @@ import cors from 'cors';
 import yahooFinance from 'yahoo-finance2';
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000; // Используем переменную окружения для порта
 
 // Используем CORS
 app.use(cors());
