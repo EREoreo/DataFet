@@ -10,4 +10,8 @@ export default defineConfig({
       plugins: [tailwindcss, autoprefixer],
     },
   },
+  server: {
+    host: true, // Позволяет доступ к серверу через публичный IP
+    port: 5173, // Укажите порт, если хотите задать конкретный
+  },
 });
