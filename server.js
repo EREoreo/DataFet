@@ -1,0 +1,52 @@
+import express from 'express';
+import cors from 'cors';
+import yahooFinance from 'yahoo-finance2';
+
+const app = express();
+const PORT = 5000;
+
+// Используем CORS
+app.use(cors());
+
+// Роут для получения данных по тикеру
+app.get('/api/stock/:ticker', async (req, res) => {
+  const { ticker } = req.params;
+  const { start, end } = req.query;
+
+  if (!ticker || !start || !end) {
+    return res.status(400).json({ error: 'Не указаны все параметры: ticker, start, end' });
+  }
+
+  try {
+    // Запрос данных с Yahoo Finance
+    const data = await yahooFinance.chart(ticker, {
+      period1: start,
+      period2: end,
+      interval: '1d',
+    });
+
+    // Проверяем структуру данных
+    if (!data || !data.quotes || !Array.isArray(data.quotes)) {
+      throw new Error('Данные отсутствуют или имеют некорректную структуру');
+    }
+
+    // Трансформация данных
+    const transformedData = data.quotes.map((quote) => ({
+      date: new Date(quote.date).toLocaleDateString('ru-RU'), // Формат даты
+      high: quote.high?.toFixed(3) || null,
+      low: quote.low?.toFixed(3) || null,
+      open: quote.open?.toFixed(3) || null,
+      close: quote.close?.toFixed(3) || null,
+    }));
+
+    res.json(transformedData); // Отправляем обработанные данные клиенту
+  } catch (error) {
+    console.error('Ошибка при запросе данных:', error.message);
+    res.status(500).json({ error: 'Ошибка при запросе данных', details: error.message });
+  }
+});
+
+// Запуск сервера
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на http://localhost:${PORT}`);
+});
