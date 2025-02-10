@@ -10,7 +10,7 @@
     "start": "node server.js",
     "start:frontend": "vite",
     "start:backend": "node server.js",
-    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+    "startt": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
   },
   "dependencies": {
     "cors": "^2.8.5",

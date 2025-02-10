@@ -30,9 +30,11 @@ const CreateTable = () => {
         throw new Error("Заполните все поля!");
       }
 
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const response = await fetch(
-        `http://localhost:5000/api/stock/${ticker}?start=${startDate}&end=${endDate}`
+        `${apiUrl}/api/stock/${ticker}?start=${startDate}&end=${endDate}`
       );
+
       if (!response.ok) {
         throw new Error(`Ошибка сервера: ${response.status}`);
       }
