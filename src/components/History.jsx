@@ -11,7 +11,7 @@ const History = () => {
 
   return (
     <div className="bg-white p-4 shadow rounded mt-6">
-      <h2 className="text-lg font-bold mb-4">История таблиц</h2>
+      <h2 className="text-lg font-bold mb-4">История таблиц666</h2>
       {history.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {history.map((item, index) => (

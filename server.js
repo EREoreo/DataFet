@@ -38,10 +38,10 @@ app.get('/api/stock/:ticker', async (req, res) => {
     // Трансформация данных
     const transformedData = data.quotes.map((quote) => ({
       date: new Date(quote.date).toLocaleDateString('ru-RU'), // Формат даты
-      high: quote.high?.toFixed(3) || null,
-      low: quote.low?.toFixed(3) || null,
-      open: quote.open?.toFixed(3) || null,
-      close: quote.close?.toFixed(3) || null,
+      high: quote.high?.toFixed(3).replace('.', ',') || null,
+      low: quote.low?.toFixed(3).replace('.', ',') || null,
+      open: quote.open?.toFixed(3).replace('.', ',') || null,
+      close: quote.close?.toFixed(3).replace('.', ',') || null,
     }));
 
     res.json(transformedData); // Отправляем обработанные данные клиенту
