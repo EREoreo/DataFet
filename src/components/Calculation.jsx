@@ -75,7 +75,7 @@ const CalculationComponent = () => {
         </div>
         <div className="flex flex-col">
           <label className="mb-1 font-semibold" htmlFor="endDate">
-            Дата конца
+            Дата кончала
           </label>
           <input
             id="endDate"
