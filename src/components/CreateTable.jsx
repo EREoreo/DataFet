@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { FaHeart } from "react-icons/fa"; // Импорт иконки сердца
+import { FaHeart } from "react-icons/fa";
+import Calculation from "./Calculation"; // Импорт нового раздела
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [history, setHistory] = useState([]);
-  const [errors, setErrors] = useState([]); // Для хранения ошибок
-  const [currentPage, setCurrentPage] = useState("table"); // Для переключения страниц
+  const [errors, setErrors] = useState([]);
+  const [currentPage, setCurrentPage] = useState("table"); // Возможные значения: "table", "errConsole", "calculation"
 
   const [favorites, setFavorites] = useState(
     JSON.parse(localStorage.getItem("favorites")) || []
-  ); // Список избранных таблиц
+  );
 
-  const [showFavorites, setShowFavorites] = useState(false); // Переключатель для отображения избранного
+  const [showFavorites, setShowFavorites] = useState(false);
 
   // Функция добавления/удаления из избранного
   const toggleFavorite = (id) => {
@@ -24,7 +25,7 @@ const CreateTable = () => {
         ? prevFavorites.filter((fav) => fav !== id)
         : [...prevFavorites, id];
 
-      localStorage.setItem("favorites", JSON.stringify(updatedFavorites)); // Сохраняем в localStorage
+      localStorage.setItem("favorites", JSON.stringify(updatedFavorites));
       return updatedFavorites;
     });
   };
@@ -35,7 +36,6 @@ const CreateTable = () => {
     setHistory(savedHistory);
   }, []);
 
-  // Сохранение новой записи в Local Storage
   const saveToHistory = (ticker, startDate, endDate) => {
     const newEntry = { ticker, startDate, endDate, id: Date.now() };
     const updatedHistory = [newEntry, ...history];
@@ -60,10 +60,10 @@ const CreateTable = () => {
 
       const data = await response.json();
       createExcel(data, ticker);
-      saveToHistory(ticker, startDate, endDate); // Сохранение в историю
+      saveToHistory(ticker, startDate, endDate);
     } catch (error) {
       console.error("Ошибка загрузки данных:", error.message);
-      setErrors((prevErrors) => [...prevErrors, error.message]); // Сохранение ошибки
+      setErrors((prevErrors) => [...prevErrors, error.message]);
       alert("Не удалось загрузить данные.");
     }
   };
@@ -72,7 +72,6 @@ const CreateTable = () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(`${tickerName} Data`);
 
-    // Устанавливаем заголовки
     worksheet.columns = [
       { header: "Ticker Name", key: "ticker", width: 15 },
       ...data.map((entry) => ({
@@ -82,7 +81,6 @@ const CreateTable = () => {
       })),
     ];
 
-    // Преобразуем данные в строки (меняем точки на запятые)
     const rows = [
       ["Макс цена", ...data.map((entry) => entry.high.replace(".", ","))],
       ["Мин цена", ...data.map((entry) => entry.low.replace(".", ","))],
@@ -90,10 +88,8 @@ const CreateTable = () => {
       ["Выходная цена", ...data.map((entry) => entry.close.replace(".", ","))],
     ];
 
-    // Добавляем строки в таблицу
     rows.forEach((row) => worksheet.addRow(row));
 
-    // Применяем стили (границы и выравнивание)
     worksheet.eachRow((row) => {
       row.eachCell((cell) => {
         cell.border = {
@@ -106,7 +102,6 @@ const CreateTable = () => {
       });
     });
 
-    // Генерация и скачивание файла
     workbook.xlsx.writeBuffer().then((buffer) => {
       const blob = new Blob([buffer], { type: "application/octet-stream" });
       saveAs(blob, `${tickerName}_Data.xlsx`);
@@ -127,6 +122,16 @@ const CreateTable = () => {
           + New table
         </button>
         <button
+          className={`py-2 px-4 rounded-full w-full mb-4 ${
+            currentPage === "calculation"
+              ? "bg-green-500"
+              : "bg-white text-gray-800"
+          }`}
+          onClick={() => setCurrentPage("calculation")}
+        >
+          Расчет
+        </button>
+        <button
           className={`py-2 px-4 rounded-full w-full ${
             currentPage === "errConsole"
               ? "bg-green-500"
@@ -142,7 +147,6 @@ const CreateTable = () => {
       <main className="flex-1 bg-gray-100 p-6">
         {currentPage === "table" && (
           <>
-            {/* Форма для ввода данных */}
             <div className="flex items-center space-x-4 mb-6">
               <input
                 type="text"
@@ -171,7 +175,6 @@ const CreateTable = () => {
               </button>
             </div>
 
-            {/* История таблиц */}
             <div className="mt-6 bg-white p-4 shadow rounded max-h-[800px] overflow-y-auto">
               <h2 className="text-lg font-bold mb-4 flex justify-between items-center">
                 История таблиц
@@ -194,12 +197,24 @@ const CreateTable = () => {
                       showFavorites ? favorites.includes(entry.id) : true
                     )
                     .map((entry) => (
-                      <div key={entry.id} className="p-4 bg-gray-200 rounded shadow flex items-center justify-between">
+                      <div
+                        key={entry.id}
+                        className="p-4 bg-gray-200 rounded shadow flex items-center justify-between"
+                      >
                         <div>
                           <p className="font-bold">{entry.ticker}</p>
-                          <p className="text-sm">{entry.startDate} --- {entry.endDate}</p>
+                          <p className="text-sm">
+                            {entry.startDate} --- {entry.endDate}
+                          </p>
                         </div>
-                        <FaHeart className={`cursor-pointer text-2xl ${favorites.includes(entry.id) ? "text-red-500" : "text-gray-400"}`} onClick={() => toggleFavorite(entry.id)} />
+                        <FaHeart
+                          className={`cursor-pointer text-2xl ${
+                            favorites.includes(entry.id)
+                              ? "text-red-500"
+                              : "text-gray-400"
+                          }`}
+                          onClick={() => toggleFavorite(entry.id)}
+                        />
                       </div>
                     ))}
                 </div>
@@ -208,8 +223,11 @@ const CreateTable = () => {
               )}
             </div>
           </>
-              )}
-{currentPage === "errConsole" && (
+        )}
+
+        {currentPage === "calculation" && <Calculation />}
+
+        {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
             <h2 className="text-lg font-bold mb-4">Err Console</h2>
             {errors.length > 0 ? (
@@ -234,4 +252,3 @@ const CreateTable = () => {
 };
 
 export default CreateTable;
-

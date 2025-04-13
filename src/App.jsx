@@ -1,26 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Login from "./components/Login";
 import CreateTable from "./components/CreateTable";
 
-
 const App = () => {
-  const [tableData, setTableData] = useState([]);
-  const [tickerName, setTickerName] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Обновление данных таблицы из CreateTable
-  const handleTableCreation = (data, ticker) => {
-    setTableData(data);
-    setTickerName(ticker);
+  // При загрузке приложения читаем состояние из sessionStorage
+  useEffect(() => {
+    const auth = sessionStorage.getItem("isAuthenticated");
+    if (auth === "true") {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    sessionStorage.setItem("isAuthenticated", "true");
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("isAuthenticated");
+    setIsAuthenticated(false);
   };
 
   return (
-    <div className="flex  min-h-screen  bg-gray-100">
-      <h1 className="text-2xl font-bold mb-6"></h1>
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Компонент для создания таблицы */}
-        <CreateTable onCreateTable={handleTableCreation} />
-
-       
-      </div>
+    <div>
+      {isAuthenticated ? (
+        <>
+          
+          <CreateTable />
+        </>
+      ) : (
+        <Login onLogin={handleLogin} />
+      )}
     </div>
   );
 };
