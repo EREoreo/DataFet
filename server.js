@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000; // Используем переменную окружения для порта
+const PORT = process.env.PORT // Используем переменную окружения для порта
 
 // Мидлвары
 app.use(cors());
