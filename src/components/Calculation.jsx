@@ -15,7 +15,7 @@ const CalculationComponent = () => {
     setLoading(true);
     setError("");
     try {
-        const apiUrl = import.meta.env.VITE_API_URL
+      const apiUrl = import.meta.env.VITE_API_URL;
       const response = await fetch(`${apiUrl}/api/calculation`, {
         method: "POST",
         headers: {
