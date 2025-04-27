@@ -4,6 +4,8 @@ import { saveAs } from "file-saver";
 import { FaHeart } from "react-icons/fa";
 import Calculation from "./Calculation"; // Расчет LONG
 import Short from "./Short"; // Новый компонент SHORT
+import BestLong from "./BestLong";
+import BestShort from "./BestShort";
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
@@ -153,6 +155,24 @@ const CreateTable = () => {
         >
           Err console
         </button>
+        <button
+  className={`py-2 px-4 rounded-full w-full mb-4  mt-4 ${
+    currentPage === "bestLong" ? "bg-green-500" : "bg-white text-gray-800"
+  }`}
+  onClick={() => setCurrentPage("bestLong")}
+>
+  Best Long
+</button>
+
+<button
+  className={`py-2 px-4 rounded-full w-full mb-4 ${
+    currentPage === "bestShort" ? "bg-green-500" : "bg-white text-gray-800"
+  }`}
+  onClick={() => setCurrentPage("bestShort")}
+>
+  Best Short
+</button>
+
       </aside>
 
       {/* Основная часть */}
@@ -239,6 +259,8 @@ const CreateTable = () => {
 
         {currentPage === "calculation" && <Calculation />}
         {currentPage === "short" && <Short />}
+        {currentPage === "bestLong" && <BestLong />} {/* ← Вставил */}
+        {currentPage === "bestShort" && <BestShort />} {/* ← Вставил */}
         {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
             <h2 className="text-lg font-bold mb-4">Err Console</h2>
