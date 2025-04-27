@@ -7,31 +7,23 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-// Используем порт, заданный Render через process.env.PORT или по умолчанию 5000
 const PORT = process.env.PORT || 5000;
 
-// Мидлвары
 app.use(cors());
 app.use(express.json());
 
-// Путь к статическим файлам фронтенда (после сборки)
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Эндпоинт для логина
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     return res.json({ success: true });
   } else {
     return res.status(401).json({ success: false, message: 'Неверный логин или пароль' });
   }
 });
 
-// Эндпоинт для получения данных по тикеру
 app.get('/api/stock/:ticker', async (req, res) => {
   const { ticker } = req.params;
   const { start, end } = req.query;
@@ -66,8 +58,8 @@ app.get('/api/stock/:ticker', async (req, res) => {
   }
 });
 
-// Ваша функция симуляции (скопирована из /api/calculation)
-function runSimulation(data, profitPercent, lossPercent) {
+// ====== ЛОНГ симуляция ======
+function runLongSimulation(data, profitPercent, lossPercent) {
   const profitVal = parseFloat(profitPercent);
   const lossVal = parseFloat(lossPercent);
   const PROFIT_TARGET = 1 + profitVal / 100;
@@ -81,32 +73,24 @@ function runSimulation(data, profitPercent, lossPercent) {
 
   for (let i = 0; i < data.length; i++) {
     const day = data[i];
+
     if (!inTrade) {
       entryPrice = day.open;
       inTrade = true;
       daysInTrade = 1;
-      if (day.high >= entryPrice * PROFIT_TARGET) {
-        totalResultPercent += profitVal;
-        totalDays += daysInTrade;
-        inTrade = false;
-        continue;
-      }
-      if (day.low <= entryPrice * STOP_LOSS) {
-        totalResultPercent -= lossVal;
-        totalDays += daysInTrade;
-        inTrade = false;
-        continue;
-      }
     } else {
       daysInTrade++;
-      if (day.high >= entryPrice * PROFIT_TARGET) {
-        totalResultPercent += profitVal;
+    }
+
+    if (inTrade) {
+      if (day.low <= entryPrice * STOP_LOSS) {
+        totalResultPercent -= lossVal;
         totalDays += daysInTrade;
         inTrade = false;
         continue;
       }
-      if (day.low <= entryPrice * STOP_LOSS) {
-        totalResultPercent -= lossVal;
+      if (day.high >= entryPrice * PROFIT_TARGET) {
+        totalResultPercent += profitVal;
         totalDays += daysInTrade;
         inTrade = false;
         continue;
@@ -128,7 +112,61 @@ function runSimulation(data, profitPercent, lossPercent) {
   };
 }
 
-// Эндпоинт для расчётов по стратегии
+// ====== ШОРТ симуляция ======
+function runShortSimulation(data, profitPercent, lossPercent) {
+  const profitVal = parseFloat(profitPercent);
+  const lossVal = parseFloat(lossPercent);
+  const PROFIT_TARGET = 1 + lossVal / 100;
+  const STOP_PROFIT = 1 - profitVal / 100;
+
+  let totalResultPercent = 0;
+  let totalDays = 0;
+  let inTrade = false;
+  let entryPrice = 0;
+  let daysInTrade = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const day = data[i];
+
+    if (!inTrade) {
+      entryPrice = day.open;
+      inTrade = true;
+      daysInTrade = 1;
+    } else {
+      daysInTrade++;
+    }
+
+    if (inTrade) {
+      if (day.high >= entryPrice * PROFIT_TARGET) {
+        totalResultPercent -= lossVal;
+        totalDays += daysInTrade;
+        inTrade = false;
+        continue;
+      }
+      if (day.low <= entryPrice * STOP_PROFIT) {
+        totalResultPercent += profitVal;
+        totalDays += daysInTrade;
+        inTrade = false;
+        continue;
+      }
+    }
+  }
+
+  if (inTrade) {
+    const lastDay = data[data.length - 1];
+    const forcedResult = ((entryPrice / lastDay.close) - 1) * 100;
+    totalResultPercent += forcedResult;
+    totalDays += daysInTrade;
+  }
+
+  return {
+    totalResultPercent,
+    totalDays,
+    avgResultPerDay: totalResultPercent / totalDays,
+  };
+}
+
+// ====== ЛОНГ расчет ======
 app.post('/api/calculation', async (req, res) => {
   const { ticker, startDate, endDate, profitPercent, lossPercent } = req.body;
   if (!ticker || !startDate || !endDate || profitPercent === undefined || lossPercent === undefined) {
@@ -143,6 +181,7 @@ app.post('/api/calculation', async (req, res) => {
       period2: endDate,
       interval: '1d',
     });
+
     if (!data || !data.quotes || !Array.isArray(data.quotes)) {
       throw new Error('Данные отсутствуют или имеют некорректную структуру');
     }
@@ -166,7 +205,7 @@ app.post('/api/calculation', async (req, res) => {
     let calcResults = [];
     for (let start = 0; start < 8; start++) {
       const slice = simulationData.slice(start);
-      const sim = runSimulation(slice, profitPercent, lossPercent);
+      const sim = runLongSimulation(slice, profitPercent, lossPercent);
       calcResults.push({
         startDay: start + 1,
         avgResultPerDay: sim.avgResultPerDay.toFixed(2),
@@ -182,57 +221,61 @@ app.post('/api/calculation', async (req, res) => {
   }
 });
 
-
-// *** НОВЫЙ РОУТ: поиск лучшей комбинации ***
-app.post('/api/best-combo', async (req, res) => {
-  const { ticker, startDate, endDate } = req.body;
-  if (!ticker || !startDate || !endDate) {
-    return res.status(400).json({ error: 'Не переданы все обязательные поля' });
+// ====== ШОРТ расчет ======
+app.post('/api/calculation-short', async (req, res) => {
+  const { ticker, startDate, endDate, profitPercent, lossPercent } = req.body;
+  if (!ticker || !startDate || !endDate || profitPercent === undefined || lossPercent === undefined) {
+    return res.status(400).json({
+      error: 'Не переданы все обязательные поля: ticker, startDate, endDate, profitPercent, lossPercent',
+    });
   }
 
   try {
-    // Получаем сырые котировки
     const data = await yahooFinance.chart(ticker, {
       period1: startDate,
       period2: endDate,
       interval: '1d',
     });
-    const quotes = data.quotes;
-    if (!quotes || !Array.isArray(quotes)) {
-      throw new Error('Неправильная структура данных для best-combo');
+
+    if (!data || !data.quotes || !Array.isArray(data.quotes)) {
+      throw new Error('Данные отсутствуют или имеют некорректную структуру');
     }
 
-    // Приводим к числовому массиву
-    const prices = quotes.map(q => ({
-      open: q.open,
-      high: q.high,
-      low: q.low,
-      close: q.close,
+    const processedData = data.quotes.map((quote) => ({
+      date: new Date(quote.date).toLocaleDateString('ru-RU'),
+      high: quote.high ? quote.high.toFixed(3).replace('.', ',') : null,
+      low: quote.low ? quote.low.toFixed(3).replace('.', ',') : null,
+      open: quote.open ? quote.open.toFixed(3).replace('.', ',') : null,
+      close: quote.close ? quote.close.toFixed(3).replace('.', ',') : null,
     }));
 
-    // Перебираем все пары (0.2; 0.3; ...; 20) на шаге 0.1
-    let best = { avg: -Infinity, profit: null, loss: null };
-    for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
-      for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
-        const { avgResultPerDay } = runSimulation(prices, p, l);
-        if (avgResultPerDay > best.avg) {
-          best = { avg: avgResultPerDay, profit: p, loss: l };
-        }
-      }
+    const simulationData = processedData.map((entry) => ({
+      date: entry.date,
+      high: entry.high ? parseFloat(entry.high.replace(',', '.')) : null,
+      low: entry.low ? parseFloat(entry.low.replace(',', '.')) : null,
+      open: entry.open ? parseFloat(entry.open.replace(',', '.')) : null,
+      close: entry.close ? parseFloat(entry.close.replace(',', '.')) : null,
+    }));
+
+    let calcResults = [];
+    for (let start = 0; start < 8; start++) {
+      const slice = simulationData.slice(start);
+      const sim = runShortSimulation(slice, profitPercent, lossPercent);
+      calcResults.push({
+        startDay: start + 1,
+        avgResultPerDay: sim.avgResultPerDay.toFixed(2),
+        totalResultPercent: sim.totalResultPercent.toFixed(2),
+        totalDays: sim.totalDays,
+      });
     }
 
-    return res.json({
-      profit: best.profit,
-      loss: best.loss,
-      avgResultPerDay: best.avg,
-    });
+    res.json({ results: calcResults });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: err.message });
+    console.error('Ошибка при расчетах:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Fallback‑роут для SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
@@ -240,4 +283,3 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
-

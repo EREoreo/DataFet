@@ -1,26 +1,22 @@
 import React, { useState } from "react";
 
-const CalculationComponent = () => {
-  // Параметры для обычного расчёта
+const Short = () => {
   const [ticker, setTicker] = useState("GES");
   const [startDate, setStartDate] = useState("2025-02-28");
   const [endDate, setEndDate] = useState("2025-04-01");
   const [profitPercent, setProfitPercent] = useState("4.8");
   const [lossPercent, setLossPercent] = useState("12");
 
-  // Состояния результатов
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
- 
 
-  // Функция для обычного расчёта
   const handleCalculate = async () => {
     setLoading(true);
     setError("");
     try {
       const apiUrl = import.meta.env.VITE_API_URL;
-      const response = await fetch(`${apiUrl}/api/calculation`, {
+      const response = await fetch(`${apiUrl}/api/calculation-short`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -43,31 +39,6 @@ const CalculationComponent = () => {
     setLoading(false);
   };
 
-  const handleFindBest = async ({ comboTicker, comboStart, comboEnd }) => {
-    setLoading(true);
-    setError("");
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL;
-      const response = await fetch(`${apiUrl}/api/best-combo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ticker: comboTicker,
-          startDate: comboStart,
-          endDate: comboEnd,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Ошибка поиска");
-      setBestCombo(data);
-    } catch (err) {
-      setError(err.message);
-    }
-    setLoading(false);
-  };
-  
-
-  // Общий средний результат
   const overallAvg =
     results.length > 0
       ? (
@@ -80,14 +51,11 @@ const CalculationComponent = () => {
 
   return (
     <div className="p-4 bg-white rounded shadow">
-      <h2 className="text-2xl font-bold mb-4">Расчет результатов</h2>
+      <h2 className="text-2xl font-bold mb-4">Расчет шорт-результатов</h2>
 
-      {/* Форма обычного расчёта */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex flex-col">
-          <label htmlFor="ticker" className="mb-1 font-semibold">
-            Тикер
-          </label>
+          <label htmlFor="ticker" className="mb-1 font-semibold">Тикер</label>
           <input
             id="ticker"
             type="text"
@@ -97,9 +65,7 @@ const CalculationComponent = () => {
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="startDate" className="mb-1 font-semibold">
-            Дата начала
-          </label>
+          <label htmlFor="startDate" className="mb-1 font-semibold">Дата начала</label>
           <input
             id="startDate"
             type="date"
@@ -109,9 +75,7 @@ const CalculationComponent = () => {
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="endDate" className="mb-1 font-semibold">
-            Дата конца
-          </label>
+          <label htmlFor="endDate" className="mb-1 font-semibold">Дата конца</label>
           <input
             id="endDate"
             type="date"
@@ -121,9 +85,7 @@ const CalculationComponent = () => {
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="profitPercent" className="mb-1 font-semibold">
-            Профит %
-          </label>
+          <label htmlFor="profitPercent" className="mb-1 font-semibold">Профит %</label>
           <input
             id="profitPercent"
             type="number"
@@ -133,9 +95,7 @@ const CalculationComponent = () => {
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="lossPercent" className="mb-1 font-semibold">
-            Лосс %
-          </label>
+          <label htmlFor="lossPercent" className="mb-1 font-semibold">Лосс %</label>
           <input
             id="lossPercent"
             type="number"
@@ -147,28 +107,22 @@ const CalculationComponent = () => {
         <div className="flex items-end">
           <button
             onClick={handleCalculate}
-            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
           >
             Рассчитать
           </button>
         </div>
       </div>
 
-      
-
-
-      {/* Ошибка и индикатор загрузки */}
       {loading && <p>Загрузка данных и расчеты...</p>}
       {error && <p className="text-red-500">{error}</p>}
 
-      {/* Общий средний результат */}
       {overallAvg !== null && (
         <div className="mb-4 p-3 border rounded bg-gray-50">
           <strong>Общий средний результат % в день:</strong> {overallAvg}%
         </div>
       )}
 
-      {/* Список по срезам */}
       {results.length > 0 && (
         <ul className="space-y-2">
           {results.map((item) => (
@@ -177,7 +131,7 @@ const CalculationComponent = () => {
               className="p-3 border rounded flex justify-between"
             >
               <span>
-                Средний результат % в день (начиная с {item.startDay}-го дня):
+                Средний результат % в день (начиная со {item.startDay}-го дня):
               </span>
               <span className="font-bold">{item.avgResultPerDay}%</span>
             </li>
@@ -188,4 +142,4 @@ const CalculationComponent = () => {
   );
 };
 
-export default CalculationComponent;
+export default Short;

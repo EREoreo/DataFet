@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { FaHeart } from "react-icons/fa";
-import Calculation from "./Calculation"; // Импорт нового раздела
+import Calculation from "./Calculation"; // Расчет LONG
+import Short from "./Short"; // Новый компонент SHORT
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
@@ -10,15 +11,18 @@ const CreateTable = () => {
   const [endDate, setEndDate] = useState("");
   const [history, setHistory] = useState([]);
   const [errors, setErrors] = useState([]);
-  const [currentPage, setCurrentPage] = useState("table"); // Возможные значения: "table", "errConsole", "calculation"
+  const [currentPage, setCurrentPage] = useState("table");
 
   const [favorites, setFavorites] = useState(
     JSON.parse(localStorage.getItem("favorites")) || []
   );
-
   const [showFavorites, setShowFavorites] = useState(false);
 
-  // Функция добавления/удаления из избранного
+  useEffect(() => {
+    const savedHistory = JSON.parse(localStorage.getItem("history")) || [];
+    setHistory(savedHistory);
+  }, []);
+
   const toggleFavorite = (id) => {
     setFavorites((prevFavorites) => {
       const updatedFavorites = prevFavorites.includes(id)
@@ -29,12 +33,6 @@ const CreateTable = () => {
       return updatedFavorites;
     });
   };
-
-  // Загрузка истории из Local Storage
-  useEffect(() => {
-    const savedHistory = JSON.parse(localStorage.getItem("history")) || [];
-    setHistory(savedHistory);
-  }, []);
 
   const saveToHistory = (ticker, startDate, endDate) => {
     const newEntry = { ticker, startDate, endDate, id: Date.now() };
@@ -110,9 +108,10 @@ const CreateTable = () => {
 
   return (
     <div className="flex h-auto w-screen">
-      {/* Админ панель */}
+      {/* Сайдбар */}
       <aside className="bg-gray-800 text-white w-[250px] p-4 h-screen">
         <h1 className="text-2xl font-bold mb-6">Data Fetcher</h1>
+
         <button
           className={`py-2 px-4 rounded-full w-full mb-4 ${
             currentPage === "table" ? "bg-green-500" : "bg-white text-gray-800"
@@ -121,6 +120,7 @@ const CreateTable = () => {
         >
           + New table
         </button>
+
         <button
           className={`py-2 px-4 rounded-full w-full mb-4 ${
             currentPage === "calculation"
@@ -129,8 +129,20 @@ const CreateTable = () => {
           }`}
           onClick={() => setCurrentPage("calculation")}
         >
-          Расчет
+          Расчет LONG
         </button>
+
+        <button
+          className={`py-2 px-4 rounded-full w-full mb-4 ${
+            currentPage === "short"
+              ? "bg-green-500"
+              : "bg-white text-gray-800"
+          }`}
+          onClick={() => setCurrentPage("short")}
+        >
+          Расчет SHORT
+        </button>
+
         <button
           className={`py-2 px-4 rounded-full w-full ${
             currentPage === "errConsole"
@@ -226,7 +238,7 @@ const CreateTable = () => {
         )}
 
         {currentPage === "calculation" && <Calculation />}
-
+        {currentPage === "short" && <Short />}
         {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
             <h2 className="text-lg font-bold mb-4">Err Console</h2>
