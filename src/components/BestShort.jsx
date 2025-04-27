@@ -72,8 +72,8 @@ const BestShort = () => {
 
       {bestResult && (
         <div className="p-4 border rounded bg-gray-50">
-          <p><strong>Профит %:</strong> {bestResult.profitPercent}</p>
-          <p><strong>Лосс %:</strong> {bestResult.lossPercent}</p>
+          <p><strong>Профит %:</strong> {bestResult.profitPercent?.toFixed(2)}</p>
+          <p><strong>Лосс %:</strong> {bestResult.lossPercent?.toFixed(2)}</p>
           <p><strong>Средний % в день:</strong> {bestResult.avgResultPerDay?.toFixed(2)}%</p>
         </div>
       )}
