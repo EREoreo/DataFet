@@ -369,9 +369,9 @@ app.post('/api/best-long', async (req, res) => {
     }
 
     res.json({
-      bestProfit: bestResult.profit.toFixed(1),
-      bestLoss: bestResult.loss.toFixed(1),
-      bestAvgResultPerDay: bestResult.avgResultPerDay.toFixed(4),
+      profitPercent: bestResult.profit,
+      lossPercent: bestResult.loss,
+      avgResultPerDay: bestResult.avgResultPerDay,
     });
   } catch (error) {
     console.error('Ошибка при расчете лучшей комбинации:', error.message);
