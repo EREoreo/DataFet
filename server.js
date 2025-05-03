@@ -532,7 +532,7 @@ app.post(
 
       const output = [['Тикер', 'Лонг профит', 'Лонг лосс', 'Шорт профит', 'Шорт лосс']];
 
-      for (let i = 3; i < rows.length; i++) {
+      for (let i = 2; i < rows.length; i++) {
         const ticker = rows[i][0];
         if (!ticker) continue;
 
