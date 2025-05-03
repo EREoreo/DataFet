@@ -69,34 +69,46 @@ app.get('/api/stock/:ticker', async (req, res) => {
 //---------------------------------------------------------
 const upload = multer({ dest: tmpdir() });
 
-function runLong(data, profit, loss) {
-  const PROFIT_TARGET = 1 + profit / 100;
-  const STOP_LOSS = 1 - loss / 100;
-  let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
-
-  for (const d of data) {
-    if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
-    count++;
-    if (d.low <= entry * STOP_LOSS) { total -= loss; days += count; inTrade = false; continue; }
-    if (d.high >= entry * PROFIT_TARGET) { total += profit; days += count; inTrade = false; }
+function runBestLong(data) {
+  let best = { avg: -Infinity, profit: 0, loss: 0 };
+  for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
+    for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
+      const PROFIT_TARGET = 1 + p / 100;
+      const STOP_LOSS = 1 - l / 100;
+      let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
+      for (const d of data) {
+        if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
+        count++;
+        if (d.low <= entry * STOP_LOSS) { total -= l; days += count; inTrade = false; continue; }
+        if (d.high >= entry * PROFIT_TARGET) { total += p; days += count; inTrade = false; }
+      }
+      if (inTrade) { total += ((data.at(-1).close / entry) - 1) * 100; days += count; }
+      const avg = total / days;
+      if (avg > best.avg) best = { avg, profit: p, loss: l };
+    }
   }
-  if (inTrade) { total += ((data.at(-1).close / entry) - 1) * 100; days += count; }
-  return { avg: total / days };
+  return best;
 }
 
-function runShort(data, profit, loss) {
-  const PROFIT_TARGET = 1 + loss / 100;
-  const STOP_PROFIT = 1 - profit / 100;
-  let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
-
-  for (const d of data) {
-    if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
-    count++;
-    if (d.high >= entry * PROFIT_TARGET) { total -= loss; days += count; inTrade = false; continue; }
-    if (d.low <= entry * STOP_PROFIT) { total += profit; days += count; inTrade = false; }
+function runBestShort(data) {
+  let best = { avg: -Infinity, profit: 0, loss: 0 };
+  for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
+    for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
+      const PROFIT_TARGET = 1 + l / 100;
+      const STOP_PROFIT = 1 - p / 100;
+      let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
+      for (const d of data) {
+        if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
+        count++;
+        if (d.high >= entry * PROFIT_TARGET) { total -= l; days += count; inTrade = false; continue; }
+        if (d.low <= entry * STOP_PROFIT) { total += p; days += count; inTrade = false; }
+      }
+      if (inTrade) { total += ((entry / data.at(-1).close) - 1) * 100; days += count; }
+      const avg = total / days;
+      if (avg > best.avg) best = { avg, profit: p, loss: l };
+    }
   }
-  if (inTrade) { total += ((entry / data.at(-1).close) - 1) * 100; days += count; }
-  return { avg: total / days };
+  return best;
 }
 
 app.post('/api/batch-best-combo', upload.single('file'), async (req, res) => {
@@ -122,16 +134,13 @@ app.post('/api/batch-best-combo', upload.single('file'), async (req, res) => {
 
       const candles = result.quotes.map(q => ({ open: q.open, high: q.high, low: q.low, close: q.close }));
 
-      let bestLong = { avg: -Infinity }, bestShort = { avg: -Infinity }, bestProfit = 0, bestLoss = 0;
+      const bestLong = runBestLong(candles);
+      row[1] = bestLong.profit;
+      row[2] = bestLong.loss;
 
-      for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
-        for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
-          const longRes = runLong(candles, p, l);
-          if (longRes.avg > bestLong.avg) { bestLong = longRes; row[1] = p; row[2] = l; }
-          const shortRes = runShort(candles, p, l);
-          if (shortRes.avg > bestShort.avg) { bestShort = shortRes; row[3] = p; row[4] = l; }
-        }
-      }
+      const bestShort = runBestShort(candles);
+      row[3] = bestShort.profit;
+      row[4] = bestShort.loss;
     }
 
     const newSheet = XLSX.utils.aoa_to_sheet(data);
