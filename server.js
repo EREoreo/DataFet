@@ -3,6 +3,11 @@ import cors from 'cors';
 import path from 'path';
 import yahooFinance from 'yahoo-finance2';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import XLSX from 'xlsx';
+import { tmpdir } from 'os';
+import fs from 'fs/promises';
+
 
 dotenv.config();
 
@@ -57,6 +62,90 @@ app.get('/api/stock/:ticker', async (req, res) => {
     res.status(500).json({ error: 'Ошибка при запросе данных', details: error.message });
   }
 });
+//---------------------------------------------------------
+const upload = multer({ dest: tmpdir() });
+
+function runLong(data, profit, loss) {
+  const PROFIT_TARGET = 1 + profit / 100;
+  const STOP_LOSS = 1 - loss / 100;
+  let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
+
+  for (const d of data) {
+    if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
+    count++;
+    if (d.low <= entry * STOP_LOSS) { total -= loss; days += count; inTrade = false; continue; }
+    if (d.high >= entry * PROFIT_TARGET) { total += profit; days += count; inTrade = false; }
+  }
+  if (inTrade) { total += ((data.at(-1).close / entry) - 1) * 100; days += count; }
+  return { avg: total / days };
+}
+
+function runShort(data, profit, loss) {
+  const PROFIT_TARGET = 1 + loss / 100;
+  const STOP_PROFIT = 1 - profit / 100;
+  let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
+
+  for (const d of data) {
+    if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
+    count++;
+    if (d.high >= entry * PROFIT_TARGET) { total -= loss; days += count; inTrade = false; continue; }
+    if (d.low <= entry * STOP_PROFIT) { total += profit; days += count; inTrade = false; }
+  }
+  if (inTrade) { total += ((entry / data.at(-1).close) - 1) * 100; days += count; }
+  return { avg: total / days };
+}
+
+app.post('/api/batch-best-combo', upload.single('file'), async (req, res) => {
+  const { startDate, endDate } = req.body;
+  if (!req.file || !startDate || !endDate) return res.status(400).json({ error: 'Данные отсутствуют' });
+
+  try {
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const ticker = row[0];
+      if (!ticker) continue;
+
+      const result = await yahooFinance.chart(ticker, {
+        period1: startDate,
+        period2: endDate,
+        interval: '1d',
+      });
+
+      const candles = result.quotes.map(q => ({ open: q.open, high: q.high, low: q.low, close: q.close }));
+
+      let bestLong = { avg: -Infinity }, bestShort = { avg: -Infinity }, bestProfit = 0, bestLoss = 0;
+
+      for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
+        for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
+          const longRes = runLong(candles, p, l);
+          if (longRes.avg > bestLong.avg) { bestLong = longRes; row[1] = p; row[2] = l; }
+          const shortRes = runShort(candles, p, l);
+          if (shortRes.avg > bestShort.avg) { bestShort = shortRes; row[3] = p; row[4] = l; }
+        }
+      }
+    }
+
+    const newSheet = XLSX.utils.aoa_to_sheet(data);
+    const newBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(newBook, newSheet, 'Results');
+
+    const buffer = XLSX.write(newBook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename=result.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при обработке файла' });
+  } finally {
+    await fs.unlink(req.file.path);
+  }
+});
+//---------------------------------------------------------
 
 // ====== ЛОНГ симуляция ======
 function runLongSimulation(data, profitPercent, lossPercent) {

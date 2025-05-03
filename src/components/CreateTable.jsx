@@ -6,6 +6,7 @@ import Calculation from "./Calculation"; // Расчет LONG
 import Short from "./Short"; // Новый компонент SHORT
 import BestLong from "./BestLong";
 import BestShort from "./BestShort";
+import BestComboBatch from "./BestComboBatch";
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
@@ -173,6 +174,15 @@ const CreateTable = () => {
   Best Short
 </button>
 
+<button
+  className={`py-2 px-4 rounded-full w-full mb-4 ${
+    currentPage === "bestComboBatch" ? "bg-green-500" : "bg-white text-gray-800"
+  }`}
+  onClick={() => setCurrentPage("bestComboBatch")}
+>
+BestComboBatch
+</button>
+
       </aside>
 
       {/* Основная часть */}
@@ -261,6 +271,7 @@ const CreateTable = () => {
         {currentPage === "short" && <Short />}
         {currentPage === "bestLong" && <BestLong />} {/* ← Вставил */}
         {currentPage === "bestShort" && <BestShort />} {/* ← Вставил */}
+        {currentPage === "bestComboBatch" && <BestComboBatch />} {/* ← Вставил */}
         {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
             <h2 className="text-lg font-bold mb-4">Err Console</h2>
