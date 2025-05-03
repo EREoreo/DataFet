@@ -67,97 +67,7 @@ app.get('/api/stock/:ticker', async (req, res) => {
   }
 });
 //---------------------------------------------------------
-const upload = multer({ dest: tmpdir() });
 
-function runBestLong(data) {
-  let best = { avg: -Infinity, profit: 0, loss: 0 };
-  for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
-    for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
-      const PROFIT_TARGET = 1 + p / 100;
-      const STOP_LOSS = 1 - l / 100;
-      let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
-      for (const d of data) {
-        if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
-        count++;
-        if (d.low <= entry * STOP_LOSS) { total -= l; days += count; inTrade = false; continue; }
-        if (d.high >= entry * PROFIT_TARGET) { total += p; days += count; inTrade = false; }
-      }
-      if (inTrade) { total += ((data.at(-1).close / entry) - 1) * 100; days += count; }
-      const avg = total / days;
-      if (avg > best.avg) best = { avg, profit: p, loss: l };
-    }
-  }
-  return best;
-}
-
-function runBestShort(data) {
-  let best = { avg: -Infinity, profit: 0, loss: 0 };
-  for (let p = 0.2; p <= 20; p = +(p + 0.1).toFixed(1)) {
-    for (let l = 0.2; l <= 20; l = +(l + 0.1).toFixed(1)) {
-      const PROFIT_TARGET = 1 + l / 100;
-      const STOP_PROFIT = 1 - p / 100;
-      let total = 0, days = 0, inTrade = false, entry = 0, count = 0;
-      for (const d of data) {
-        if (!inTrade) { entry = d.open; inTrade = true; count = 1; continue; }
-        count++;
-        if (d.high >= entry * PROFIT_TARGET) { total -= l; days += count; inTrade = false; continue; }
-        if (d.low <= entry * STOP_PROFIT) { total += p; days += count; inTrade = false; }
-      }
-      if (inTrade) { total += ((entry / data.at(-1).close) - 1) * 100; days += count; }
-      const avg = total / days;
-      if (avg > best.avg) best = { avg, profit: p, loss: l };
-    }
-  }
-  return best;
-}
-
-app.post('/api/batch-best-combo', upload.single('file'), async (req, res) => {
-  const { startDate, endDate } = req.body;
-  if (!req.file || !startDate || !endDate) return res.status(400).json({ error: 'Данные отсутствуют' });
-
-  try {
-    const workbook = XLSX.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const ticker = row[0];
-      if (!ticker) continue;
-
-      const result = await yahooFinance.chart(ticker, {
-        period1: startDate,
-        period2: endDate,
-        interval: '1d',
-      });
-
-      const candles = result.quotes.map(q => ({ open: q.open, high: q.high, low: q.low, close: q.close }));
-
-      const bestLong = runBestLong(candles);
-      row[1] = bestLong.profit;
-      row[2] = bestLong.loss;
-
-      const bestShort = runBestShort(candles);
-      row[3] = bestShort.profit;
-      row[4] = bestShort.loss;
-    }
-
-    const newSheet = XLSX.utils.aoa_to_sheet(data);
-    const newBook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(newBook, newSheet, 'Results');
-
-    const buffer = XLSX.write(newBook, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader('Content-Disposition', 'attachment; filename=result.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка при обработке файла' });
-  } finally {
-    await fs.unlink(req.file.path);
-  }
-});
 //---------------------------------------------------------
 
 // ====== ЛОНГ симуляция ======
@@ -584,6 +494,95 @@ app.post('/api/best-short', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОДБОРА ЛУЧШЕЙ КОМБИНАЦИИ =====
+function findBestCombo(data, type = 'long') {
+  let best = { profit: 0, loss: 0, avgResultPerDay: -Infinity };
+
+  for (let profit = 0.2; profit <= 20; profit = +(profit + 0.1).toFixed(1)) {
+    for (let loss = 0.2; loss <= 20; loss = +(loss + 0.1).toFixed(1)) {
+      const sim = type === 'long'
+        ? runLongSimulation(data, profit, loss)
+        : runShortSimulation(data, profit, loss);
+
+      if (sim.avgResultPerDay > best.avgResultPerDay) {
+        best = { profit, loss, avgResultPerDay: sim.avgResultPerDay };
+      }
+    }
+  }
+
+  return best;
+}
+
+// ===== ЭНДПОИНТ /api/batch-best-combo =====
+app.post(
+  '/api/batch-best-combo',
+  multer({ storage: multer.memoryStorage() }).single('file'),
+  async (req, res) => {
+    const { startDate, endDate } = req.body;
+
+    if (!req.file || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Файл, startDate и endDate обязательны' });
+    }
+
+    try {
+      const workbook = XLSX.read(req.file.buffer);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      const output = [['Тикер', 'Лонг профит', 'Лонг лосс', 'Шорт профит', 'Шорт лосс']];
+
+      for (let i = 3; i < rows.length; i++) {
+        const ticker = rows[i][0];
+        if (!ticker) continue;
+
+        console.log(`Обработка ${ticker}...`);
+
+        try {
+          const raw = await yahooFinance.chart(ticker, {
+            period1: startDate,
+            period2: endDate,
+            interval: '1d',
+          });
+
+          const data = raw.quotes.map((q) => ({
+            open: q.open,
+            high: q.high,
+            low: q.low,
+            close: q.close,
+          }));
+
+          const bestLong = findBestCombo(data, 'long');
+          const bestShort = findBestCombo(data, 'short');
+
+          output.push([
+            ticker,
+            bestLong.profit,
+            bestLong.loss,
+            bestShort.profit,
+            bestShort.loss,
+          ]);
+        } catch (err) {
+          console.error(`Ошибка по тикеру ${ticker}: ${err.message}`);
+          output.push([ticker, 'ERR', 'ERR', 'ERR', 'ERR']);
+        }
+      }
+
+      const resultSheet = XLSX.utils.aoa_to_sheet(output);
+      const resultBook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(resultBook, resultSheet, 'Результаты');
+
+      const buffer = XLSX.write(resultBook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Disposition', 'attachment; filename="result.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+    } catch (err) {
+      console.error('Ошибка при обработке файла:', err.message);
+      res.status(500).json({ error: 'Ошибка при обработке файла' });
+    }
+  }
+);
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
