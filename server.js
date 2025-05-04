@@ -530,7 +530,7 @@ app.post(
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      // Автоопределение строки, с которой начинаются тикеры
+      // Автоопределение первой строки с тикерами
       let startRow = rows.findIndex(
         (row) =>
           row[0] &&
@@ -572,12 +572,12 @@ app.post(
 
           output.push([
             ticker,
-            bestLong.profit,
-            bestLong.loss,
-            bestLong.avgResultPerDay.toFixed(2),
-            bestShort.profit,
-            bestShort.loss,
-            bestShort.avgResultPerDay.toFixed(2),
+            bestLong.profit.toString().replace('.', ','),
+            bestLong.loss.toString().replace('.', ','),
+            bestLong.avgResultPerDay.toFixed(2).replace('.', ','),
+            bestShort.profit.toString().replace('.', ','),
+            bestShort.loss.toString().replace('.', ','),
+            bestShort.avgResultPerDay.toFixed(2).replace('.', ','),
           ]);
         } catch (err) {
           console.error(`Ошибка по тикеру ${ticker}: ${err.message}`);
