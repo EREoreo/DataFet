@@ -530,11 +530,26 @@ app.post(
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      const output = [['Тикер', 'Лонг профит', 'Лонг лосс', 'Шорт профит', 'Шорт лосс']];
+      // Автоопределение строки, с которой начинаются тикеры
+      let startRow = rows.findIndex(
+        (row) =>
+          row[0] &&
+          typeof row[0] === 'string' &&
+          !row[0].toLowerCase().includes('тикер') &&
+          !row[0].toLowerCase().includes('лонг') &&
+          !row[0].toLowerCase().includes('шорт')
+      );
+      if (startRow === -1) startRow = 0;
 
-      for (let i = 2; i < rows.length; i++) {
+      const output = [[
+        'Тикер',
+        'Лонг профит', 'Лонг лосс', 'Лонг % в день',
+        'Шорт профит', 'Шорт лосс', 'Шорт % в день'
+      ]];
+
+      for (let i = startRow; i < rows.length; i++) {
         const ticker = rows[i][0];
-        if (!ticker) continue;
+        if (!ticker || typeof ticker !== 'string') continue;
 
         console.log(`Обработка ${ticker}...`);
 
@@ -559,12 +574,14 @@ app.post(
             ticker,
             bestLong.profit,
             bestLong.loss,
+            bestLong.avgResultPerDay.toFixed(2),
             bestShort.profit,
             bestShort.loss,
+            bestShort.avgResultPerDay.toFixed(2),
           ]);
         } catch (err) {
           console.error(`Ошибка по тикеру ${ticker}: ${err.message}`);
-          output.push([ticker, 'ERR', 'ERR', 'ERR', 'ERR']);
+          output.push([ticker, 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR']);
         }
       }
 
@@ -583,6 +600,7 @@ app.post(
     }
   }
 );
+
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
