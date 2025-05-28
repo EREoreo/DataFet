@@ -367,8 +367,8 @@ app.post('/api/best-long', async (req, res) => {
       avgResultPerDay: -Infinity,
     };
 
-    for (let profit = 0.2; profit <= 20; profit = +(profit + 0.1).toFixed(1)) {
-      for (let loss = 0.2; loss <= 20; loss = +(loss + 0.1).toFixed(1)) {
+    for (let profit = 0.7; profit <= 10; profit = +(profit + 0.1).toFixed(1)) {
+      for (let loss = 5; loss <= 30; loss = +(loss + 0.1).toFixed(1)) {
         const sim = runSimulation(data, profit, loss);
         if (sim.avgResultPerDay > bestResult.avgResultPerDay) {
           bestResult = {
@@ -471,8 +471,8 @@ app.post('/api/best-short', async (req, res) => {
       avgResultPerDay: -Infinity,
     };
 
-    for (let profit = 0.2; profit <= 20; profit = +(profit + 0.1).toFixed(1)) {
-      for (let loss = 0.2; loss <= 20; loss = +(loss + 0.1).toFixed(1)) {
+    for (let profit = 5; profit <= 30; profit = +(profit + 0.1).toFixed(1)) {
+      for (let loss = 0.7; loss <= 10; loss = +(loss + 0.1).toFixed(1)) {
         const sim = runShortSimulation(data, profit, loss);
         if (sim.avgResultPerDay > bestResult.avgResultPerDay) {
           bestResult = {
