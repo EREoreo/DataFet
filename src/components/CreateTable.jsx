@@ -7,6 +7,7 @@ import Short from "./Short"; // Новый компонент SHORT
 import BestLong from "./BestLong";
 import BestShort from "./BestShort";
 import BestComboBatch from "./BestComboBatch";
+import BestComboAdvanced from './BestComboAdvanced';
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
@@ -182,6 +183,14 @@ const CreateTable = () => {
 >
 BestComboBatch
 </button>
+<button
+  className={`py-2 px-4 rounded-full w-full mb-4 ${
+    currentPage === "bestComboBatch" ? "bg-green-500" : "bg-white text-gray-800"
+  }`}
+  onClick={() => setCurrentPage("bestComboAdvanced")}
+>
+Best Combo % per day
+</button>
 
       </aside>
 
@@ -272,6 +281,7 @@ BestComboBatch
         {currentPage === "bestLong" && <BestLong />} {/* ← Вставил */}
         {currentPage === "bestShort" && <BestShort />} {/* ← Вставил */}
         {currentPage === "bestComboBatch" && <BestComboBatch />} {/* ← Вставил */}
+        {currentPage === "bestComboAdvanced" && <BestComboAdvanced />}
         {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
             <h2 className="text-lg font-bold mb-4">Err Console</h2>
