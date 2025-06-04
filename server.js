@@ -603,7 +603,7 @@ app.post(
   //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// ===== ЛОНГ Advanced симуляция =====
+/// ===== ЛОНГ Advanced симуляция =====
 function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
   const PROFIT_TARGET = 1 + profitPercent / 100;
   const STOP_LOSS = 1 - lossPercent / 100;
@@ -735,7 +735,7 @@ function runShortAdvancedSimulation(data, profitPercent, lossPercent) {
   };
 }
 
-// ===== Новый эндпоинт /api/batch-best-advanced =====
+// ===== Новый эндпоинт с Половинной Покраской =====
 app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() }).single('file'), async (req, res) => {
   const { startDate, endDate, minSuccessLong, maxFailLong, minSuccessShort, maxFailShort } = req.body;
 
@@ -827,14 +827,25 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
           bestShort ? bestShort.loss.toFixed(1) : '—'
         ]);
 
-        // Цвет строки
-        const color = bestLong && bestShort ? 'FFCCFFCC' : 'FFFFCCCC'; // зелёный если оба ок, иначе красный
-        row.eachCell(cell => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: color }
-          };
+        // Разделение цветов
+        const longColor = bestLong ? 'FFCCFFCC' : 'FFFFCCCC'; // Лонг
+        const shortColor = bestShort ? 'FFCCFFCC' : 'FFFFCCCC'; // Шорт
+
+        row.eachCell((cell, colNumber) => {
+          if (colNumber >= 2 && colNumber <= 7) { // Лонг-поля
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: longColor }
+            };
+          }
+          if (colNumber >= 8 && colNumber <= 13) { // Шорт-поля
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: shortColor }
+            };
+          }
         });
 
       } catch (err) {
