@@ -600,25 +600,24 @@ app.post(
     }
   }
 );
-//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function runLongSimulationAdvanced(data, profitPercent, lossPercent) {
-  const profitVal = parseFloat(profitPercent);
-  const lossVal = parseFloat(lossPercent);
-  const PROFIT_TARGET = 1 + profitVal / 100;
-  const STOP_LOSS = 1 - lossVal / 100;
+  //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// ===== ЛОНГ Advanced симуляция =====
+function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
+  const PROFIT_TARGET = 1 + profitPercent / 100;
+  const STOP_LOSS = 1 - lossPercent / 100;
 
   let totalResultPercent = 0;
   let totalDays = 0;
-  let inTrade = false;
-  let entryPrice = 0;
-  let daysInTrade = 0;
   let positiveTrades = 0;
   let negativeTrades = 0;
   let totalTrades = 0;
+  let inTrade = false;
+  let entryPrice = 0;
+  let daysInTrade = 0;
 
-  for (let i = 0; i < data.length; i++) {
-    const day = data[i];
-
+  for (const day of data) {
     if (!inTrade) {
       entryPrice = day.open;
       inTrade = true;
@@ -629,7 +628,7 @@ function runLongSimulationAdvanced(data, profitPercent, lossPercent) {
 
     if (inTrade) {
       if (day.low <= entryPrice * STOP_LOSS) {
-        totalResultPercent -= lossVal;
+        totalResultPercent -= lossPercent;
         totalDays += daysInTrade;
         negativeTrades++;
         totalTrades++;
@@ -637,7 +636,7 @@ function runLongSimulationAdvanced(data, profitPercent, lossPercent) {
         continue;
       }
       if (day.high >= entryPrice * PROFIT_TARGET) {
-        totalResultPercent += profitVal;
+        totalResultPercent += profitPercent;
         totalDays += daysInTrade;
         positiveTrades++;
         totalTrades++;
@@ -653,43 +652,38 @@ function runLongSimulationAdvanced(data, profitPercent, lossPercent) {
     totalResultPercent += forcedResult;
     totalDays += daysInTrade;
     totalTrades++;
-    if (forcedResult >= 0) {
-      positiveTrades++;
-    } else {
-      negativeTrades++;
-    }
+    if (forcedResult >= 0) positiveTrades++;
+    else negativeTrades++;
   }
 
   const successRate = (positiveTrades / totalTrades) * 100;
   const failureRate = (negativeTrades / totalTrades) * 100;
 
   return {
-    totalResultPercent,
     totalDays,
+    positiveTrades,
+    negativeTrades,
     avgResultPerDay: totalResultPercent / totalDays,
     successRate,
     failureRate,
   };
 }
 
-function runShortSimulationAdvanced(data, profitPercent, lossPercent) {
-  const profitVal = parseFloat(profitPercent);
-  const lossVal = parseFloat(lossPercent);
-  const PROFIT_TARGET = 1 + lossVal / 100;
-  const STOP_PROFIT = 1 - profitVal / 100;
+// ===== ШОРТ Advanced симуляция =====
+function runShortAdvancedSimulation(data, profitPercent, lossPercent) {
+  const PROFIT_TARGET = 1 + lossPercent / 100;
+  const STOP_PROFIT = 1 - profitPercent / 100;
 
   let totalResultPercent = 0;
   let totalDays = 0;
-  let inTrade = false;
-  let entryPrice = 0;
-  let daysInTrade = 0;
   let positiveTrades = 0;
   let negativeTrades = 0;
   let totalTrades = 0;
+  let inTrade = false;
+  let entryPrice = 0;
+  let daysInTrade = 0;
 
-  for (let i = 0; i < data.length; i++) {
-    const day = data[i];
-
+  for (const day of data) {
     if (!inTrade) {
       entryPrice = day.open;
       inTrade = true;
@@ -700,7 +694,7 @@ function runShortSimulationAdvanced(data, profitPercent, lossPercent) {
 
     if (inTrade) {
       if (day.high >= entryPrice * PROFIT_TARGET) {
-        totalResultPercent -= lossVal;
+        totalResultPercent -= lossPercent;
         totalDays += daysInTrade;
         negativeTrades++;
         totalTrades++;
@@ -708,7 +702,7 @@ function runShortSimulationAdvanced(data, profitPercent, lossPercent) {
         continue;
       }
       if (day.low <= entryPrice * STOP_PROFIT) {
-        totalResultPercent += profitVal;
+        totalResultPercent += profitPercent;
         totalDays += daysInTrade;
         positiveTrades++;
         totalTrades++;
@@ -724,178 +718,140 @@ function runShortSimulationAdvanced(data, profitPercent, lossPercent) {
     totalResultPercent += forcedResult;
     totalDays += daysInTrade;
     totalTrades++;
-    if (forcedResult >= 0) {
-      positiveTrades++;
-    } else {
-      negativeTrades++;
-    }
+    if (forcedResult >= 0) positiveTrades++;
+    else negativeTrades++;
   }
 
   const successRate = (positiveTrades / totalTrades) * 100;
   const failureRate = (negativeTrades / totalTrades) * 100;
 
   return {
-    totalResultPercent,
     totalDays,
+    positiveTrades,
+    negativeTrades,
     avgResultPerDay: totalResultPercent / totalDays,
     successRate,
     failureRate,
   };
 }
 
+// ===== Новый эндпоинт /api/batch-best-advanced =====
+app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() }).single('file'), async (req, res) => {
+  const { startDate, endDate, minSuccessLong, maxFailLong, minSuccessShort, maxFailShort } = req.body;
 
-app.post(
-  '/api/batch-best-advanced',
-  multer({ storage: multer.memoryStorage() }).single('file'),
-  async (req, res) => {
-    const { startDate, endDate, minSuccessLong, maxFailLong, minSuccessShort, maxFailShort } = req.body;
-
-    if (!req.file || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Файл и даты обязательны' });
-    }
-
-    try {
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Результаты');
-
-      // Заголовки
-      worksheet.addRow([
-        'Тикер',
-        'Лонг профит', 'Лонг лосс', 'Лонг % в день', 'Лонг % успеха', 'Лонг % неуспеха',
-        'Шорт профит', 'Шорт лосс', 'Шорт % в день', 'Шорт % успеха', 'Шорт % неуспеха'
-      ]);
-
-      const originalWorkbook = XLSX.read(req.file.buffer);
-      const sheet = originalWorkbook.Sheets[originalWorkbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-      let startRow = rows.findIndex(
-        (row) =>
-          row[0] &&
-          typeof row[0] === 'string' &&
-          !row[0].toLowerCase().includes('тикер')
-      );
-      if (startRow === -1) startRow = 0;
-
-      for (let i = startRow; i < rows.length; i++) {
-        const ticker = rows[i][0];
-        if (!ticker || typeof ticker !== 'string') continue;
-
-        console.log(`Обработка ${ticker}...`);
-
-        try {
-          const raw = await yahooFinance.chart(ticker, {
-            period1: startDate,
-            period2: endDate,
-            interval: '1d',
-          });
-
-          const originalData = raw.quotes.map((q) => ({
-            open: q.open,
-            high: q.high,
-            low: q.low,
-            close: q.close,
-          }));
-
-          let bestLong = null;
-          let bestShort = null;
-
-          for (let start = 0; start < 8; start++) {
-            const sliceData = originalData.slice(start);
-
-            // ЛОНГ
-            for (let profit = 0.5; profit <= 20; profit += 0.1) {
-              for (let loss = 0.5; loss <= 20; loss += 0.1) {
-                const sim = runLongSimulationAdvanced(sliceData, profit, loss);
-                if (
-                  sim.successRate >= minSuccessLong &&
-                  sim.failureRate <= maxFailLong
-                ) {
-                  if (!bestLong || sim.avgResultPerDay > bestLong.avgResultPerDay) {
-                    bestLong = { profit, loss, ...sim };
-                  }
-                }
-              }
-            }
-
-            // ШОРТ
-            for (let profit = 0.5; profit <= 20; profit += 0.1) {
-              for (let loss = 0.5; loss <= 20; loss += 0.1) {
-                const sim = runShortSimulationAdvanced(sliceData, profit, loss);
-                if (
-                  sim.successRate >= minSuccessShort &&
-                  sim.failureRate <= maxFailShort
-                ) {
-                  if (!bestShort || sim.avgResultPerDay > bestShort.avgResultPerDay) {
-                    bestShort = { profit, loss, ...sim };
-                  }
-                }
-              }
-            }
-          }
-
-          let row;
-          if (bestLong && bestShort) {
-            row = worksheet.addRow([
-              ticker,
-              bestLong.profit.toFixed(1).replace('.', ','), bestLong.loss.toFixed(1).replace('.', ','),
-              bestLong.avgResultPerDay.toFixed(2).replace('.', ','),
-              bestLong.successRate.toFixed(2).replace('.', ','), bestLong.failureRate.toFixed(2).replace('.', ','),
-              bestShort.profit.toFixed(1).replace('.', ','), bestShort.loss.toFixed(1).replace('.', ','),
-              bestShort.avgResultPerDay.toFixed(2).replace('.', ','),
-              bestShort.successRate.toFixed(2).replace('.', ','), bestShort.failureRate.toFixed(2).replace('.', ',')
-            ]);
-
-            // Зелёная заливка
-            row.eachCell((cell) => {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFCCFFCC' } // светло-зелёный
-              };
-            });
-          } else {
-            row = worksheet.addRow([
-              ticker, 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR'
-            ]);
-
-            // Красная заливка
-            row.eachCell((cell) => {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFFFCCCC' } // светло-красный
-              };
-            });
-          }
-        } catch (err) {
-          console.error(`Ошибка по тикеру ${ticker}: ${err.message}`);
-          const row = worksheet.addRow([
-            ticker, 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR', 'ERR'
-          ]);
-
-          row.eachCell((cell) => {
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: 'FFFFCCCC' }
-            };
-          });
-        }
-      }
-
-      const buffer = await workbook.xlsx.writeBuffer();
-
-      res.setHeader('Content-Disposition', 'attachment; filename="result.xlsx"');
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.send(buffer);
-    } catch (err) {
-      console.error('Ошибка при обработке файла:', err.message);
-      res.status(500).json({ error: 'Ошибка при обработке файла' });
-    }
+  if (!req.file || !startDate || !endDate) {
+    return res.status(400).json({ error: 'Файл и даты обязательны' });
   }
-);
 
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Результаты');
+
+    // Заголовки
+    worksheet.addRow([
+      'Тикер',
+      'Лонг Дни', 'Лонг Плюс', 'Лонг Минус', 'Лонг % в день', 'Лонг Профит', 'Лонг Лосс',
+      'Шорт Дни', 'Шорт Плюс', 'Шорт Минус', 'Шорт % в день', 'Шорт Профит', 'Шорт Лосс'
+    ]);
+
+    const originalWorkbook = XLSX.read(req.file.buffer);
+    const sheet = originalWorkbook.Sheets[originalWorkbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    const startRow = rows.findIndex((row) => row[0] && typeof row[0] === 'string' && !row[0].toLowerCase().includes('тикер'));
+
+    for (let i = startRow; i < rows.length; i++) {
+      const ticker = rows[i][0];
+      if (!ticker) continue;
+
+      try {
+        const rawData = await yahooFinance.chart(ticker, {
+          period1: startDate,
+          period2: endDate,
+          interval: '1d',
+        });
+
+        const data = rawData.quotes.map(q => ({
+          open: q.open,
+          high: q.high,
+          low: q.low,
+          close: q.close,
+        }));
+
+        let bestLong = null;
+        let bestShort = null;
+
+        // Перебор Лонг
+        for (let profit = 0.7; profit <= 10; profit += 0.1) {
+          for (let loss = 5; loss <= 30; loss += 0.1) {
+            const sim = runLongAdvancedSimulation(data, profit, loss);
+            if (
+              sim.successRate >= minSuccessLong &&
+              sim.failureRate <= maxFailLong
+            ) {
+              if (!bestLong || sim.avgResultPerDay > bestLong.avgResultPerDay) {
+                bestLong = { profit, loss, ...sim };
+              }
+            }
+          }
+        }
+
+        // Перебор Шорт
+        for (let profit = 5; profit <= 30; profit += 0.1) {
+          for (let loss = 0.7; loss <= 10; loss += 0.1) {
+            const sim = runShortAdvancedSimulation(data, profit, loss);
+            if (
+              sim.successRate >= minSuccessShort &&
+              sim.failureRate <= maxFailShort
+            ) {
+              if (!bestShort || sim.avgResultPerDay > bestShort.avgResultPerDay) {
+                bestShort = { profit, loss, ...sim };
+              }
+            }
+          }
+        }
+
+        const row = worksheet.addRow([
+          ticker,
+          bestLong ? bestLong.totalDays : '—',
+          bestLong ? bestLong.positiveTrades : '—',
+          bestLong ? bestLong.negativeTrades : '—',
+          bestLong ? bestLong.avgResultPerDay.toFixed(2) : '—',
+          bestLong ? bestLong.profit.toFixed(1) : '—',
+          bestLong ? bestLong.loss.toFixed(1) : '—',
+          bestShort ? bestShort.totalDays : '—',
+          bestShort ? bestShort.positiveTrades : '—',
+          bestShort ? bestShort.negativeTrades : '—',
+          bestShort ? bestShort.avgResultPerDay.toFixed(2) : '—',
+          bestShort ? bestShort.profit.toFixed(1) : '—',
+          bestShort ? bestShort.loss.toFixed(1) : '—'
+        ]);
+
+        // Цвет строки
+        const color = bestLong && bestShort ? 'FFCCFFCC' : 'FFFFCCCC'; // зелёный если оба ок, иначе красный
+        row.eachCell(cell => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: color }
+          };
+        });
+
+      } catch (err) {
+        console.error(`Ошибка по тикеру ${ticker}:`, err.message);
+      }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Disposition', 'attachment; filename="result.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+
+  } catch (err) {
+    console.error('Ошибка при обработке файла:', err.message);
+    res.status(500).json({ error: 'Ошибка при обработке файла' });
+  }
+});
 
 
 app.get('*', (req, res) => {

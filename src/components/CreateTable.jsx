@@ -278,9 +278,9 @@ Best Combo % per day
 
         {currentPage === "calculation" && <Calculation />}
         {currentPage === "short" && <Short />}
-        {currentPage === "bestLong" && <BestLong />} {/* ← Вставил */}
-        {currentPage === "bestShort" && <BestShort />} {/* ← Вставил */}
-        {currentPage === "bestComboBatch" && <BestComboBatch />} {/* ← Вставил */}
+        {currentPage === "bestLong" && <BestLong />} 
+        {currentPage === "bestShort" && <BestShort />} 
+        {currentPage === "bestComboBatch" && <BestComboBatch />} 
         {currentPage === "bestComboAdvanced" && <BestComboAdvanced />}
         {currentPage === "errConsole" && (
           <div className="bg-white p-4 shadow rounded">
