@@ -608,76 +608,106 @@ function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
   const PROFIT_TARGET = 1 + profitPercent / 100;
   const STOP_LOSS = 1 - lossPercent / 100;
 
+  let inTrade = false;
+  let entryPrice = 0;
+  let daysInTrade = 0;
+
   let totalResultPercent = 0;
   let totalDays = 0;
   let positiveTrades = 0;
   let negativeTrades = 0;
   let totalTrades = 0;
-  let avgResultPerDaySum = 0;
 
-  for (let start = 0; start < 8; start++) {
-    let inTrade = false;
-    let entryPrice = 0;
-    let daysInTrade = 0;
-    let localResultPercent = 0;
-    let localDays = 0;
-    let localPositiveTrades = 0;
-    let localNegativeTrades = 0;
-    let localTotalTrades = 0;
+  // Основной расчет по всем данным
+  for (const day of data) {
+    if (!inTrade) {
+      entryPrice = day.open;
+      inTrade = true;
+      daysInTrade = 1;
+    } else {
+      daysInTrade++;
+    }
 
-    const slicedData = data.slice(start);
-
-    for (const day of slicedData) {
-      if (!inTrade) {
-        entryPrice = day.open;
-        inTrade = true;
-        daysInTrade = 1;
-      } else {
-        daysInTrade++;
+    if (inTrade) {
+      if (day.low <= entryPrice * STOP_LOSS) {
+        totalResultPercent -= lossPercent;
+        totalDays += daysInTrade;
+        negativeTrades++;
+        totalTrades++;
+        inTrade = false;
+        continue;
       }
-
-      if (inTrade) {
-        if (day.low <= entryPrice * STOP_LOSS) {
-          localResultPercent -= lossPercent;
-          localDays += daysInTrade;
-          localNegativeTrades++;
-          localTotalTrades++;
-          inTrade = false;
-          continue;
-        }
-        if (day.high >= entryPrice * PROFIT_TARGET) {
-          localResultPercent += profitPercent;
-          localDays += daysInTrade;
-          localPositiveTrades++;
-          localTotalTrades++;
-          inTrade = false;
-          continue;
-        }
+      if (day.high >= entryPrice * PROFIT_TARGET) {
+        totalResultPercent += profitPercent;
+        totalDays += daysInTrade;
+        positiveTrades++;
+        totalTrades++;
+        inTrade = false;
+        continue;
       }
     }
-
-    if (inTrade && slicedData.length > 0) {
-      const lastDay = slicedData[slicedData.length - 1];
-      const forcedResult = ((lastDay.close / entryPrice) - 1) * 100;
-      localResultPercent += forcedResult;
-      localDays += daysInTrade;
-      localTotalTrades++;
-      if (forcedResult >= 0) localPositiveTrades++;
-      else localNegativeTrades++;
-    }
-
-    if (localDays > 0) {
-      avgResultPerDaySum += localResultPercent / localDays; // среднее за срез
-    }
-
-    totalResultPercent += localResultPercent;
-    totalDays += localDays;
-    positiveTrades += localPositiveTrades;
-    negativeTrades += localNegativeTrades;
-    totalTrades += localTotalTrades;
   }
 
-  const avgResultPerDay = avgResultPerDaySum / 8; // среднее арифметическое по срезам
+  if (inTrade && data.length > 0) {
+    const lastDay = data[data.length - 1];
+    const forcedResult = ((lastDay.close / entryPrice) - 1) * 100;
+    totalResultPercent += forcedResult;
+    totalDays += daysInTrade;
+    totalTrades++;
+    if (forcedResult >= 0) positiveTrades++;
+    else negativeTrades++;
+  }
+
+  // Среднее по 8 срезам
+  let avgResultPerDaySum = 0;
+  for (let start = 0; start < 8; start++) {
+    const slicedData = data.slice(start);
+    if (slicedData.length === 0) continue;
+
+    let sliceResultPercent = 0;
+    let sliceDays = 0;
+    let sliceInTrade = false;
+    let sliceEntryPrice = 0;
+    let sliceDaysInTrade = 0;
+
+    for (const day of slicedData) {
+      if (!sliceInTrade) {
+        sliceEntryPrice = day.open;
+        sliceInTrade = true;
+        sliceDaysInTrade = 1;
+      } else {
+        sliceDaysInTrade++;
+      }
+
+      if (sliceInTrade) {
+        if (day.low <= sliceEntryPrice * STOP_LOSS) {
+          sliceResultPercent -= lossPercent;
+          sliceDays += sliceDaysInTrade;
+          sliceInTrade = false;
+          continue;
+        }
+        if (day.high >= sliceEntryPrice * PROFIT_TARGET) {
+          sliceResultPercent += profitPercent;
+          sliceDays += sliceDaysInTrade;
+          sliceInTrade = false;
+          continue;
+        }
+      }
+    }
+
+    if (sliceInTrade && slicedData.length > 0) {
+      const lastDay = slicedData[slicedData.length - 1];
+      const forcedResult = ((lastDay.close / sliceEntryPrice) - 1) * 100;
+      sliceResultPercent += forcedResult;
+      sliceDays += sliceDaysInTrade;
+    }
+
+    if (sliceDays > 0) {
+      avgResultPerDaySum += sliceResultPercent / sliceDays;
+    }
+  }
+
+  const avgResultPerDay = avgResultPerDaySum / 8;
   const successRate = (positiveTrades / totalTrades) * 100;
   const failureRate = (negativeTrades / totalTrades) * 100;
 
@@ -690,81 +720,110 @@ function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
     failureRate,
   };
 }
-
 function runShortAdvancedSimulation(data, profitPercent, lossPercent) {
   const PROFIT_TARGET = 1 + lossPercent / 100;
   const STOP_PROFIT = 1 - profitPercent / 100;
 
+  let inTrade = false;
+  let entryPrice = 0;
+  let daysInTrade = 0;
+
   let totalResultPercent = 0;
   let totalDays = 0;
   let positiveTrades = 0;
   let negativeTrades = 0;
   let totalTrades = 0;
-  let avgResultPerDaySum = 0;
 
-  for (let start = 0; start < 8; start++) {
-    let inTrade = false;
-    let entryPrice = 0;
-    let daysInTrade = 0;
-    let localResultPercent = 0;
-    let localDays = 0;
-    let localPositiveTrades = 0;
-    let localNegativeTrades = 0;
-    let localTotalTrades = 0;
+  // Основной расчет по всем данным
+  for (const day of data) {
+    if (!inTrade) {
+      entryPrice = day.open;
+      inTrade = true;
+      daysInTrade = 1;
+    } else {
+      daysInTrade++;
+    }
 
-    const slicedData = data.slice(start);
-
-    for (const day of slicedData) {
-      if (!inTrade) {
-        entryPrice = day.open;
-        inTrade = true;
-        daysInTrade = 1;
-      } else {
-        daysInTrade++;
+    if (inTrade) {
+      if (day.high >= entryPrice * PROFIT_TARGET) {
+        totalResultPercent -= lossPercent;
+        totalDays += daysInTrade;
+        negativeTrades++;
+        totalTrades++;
+        inTrade = false;
+        continue;
       }
-
-      if (inTrade) {
-        if (day.high >= entryPrice * PROFIT_TARGET) {
-          localResultPercent -= lossPercent;
-          localDays += daysInTrade;
-          localNegativeTrades++;
-          localTotalTrades++;
-          inTrade = false;
-          continue;
-        }
-        if (day.low <= entryPrice * STOP_PROFIT) {
-          localResultPercent += profitPercent;
-          localDays += daysInTrade;
-          localPositiveTrades++;
-          localTotalTrades++;
-          inTrade = false;
-          continue;
-        }
+      if (day.low <= entryPrice * STOP_PROFIT) {
+        totalResultPercent += profitPercent;
+        totalDays += daysInTrade;
+        positiveTrades++;
+        totalTrades++;
+        inTrade = false;
+        continue;
       }
     }
-
-    if (inTrade && slicedData.length > 0) {
-      const lastDay = slicedData[slicedData.length - 1];
-      const forcedResult = ((entryPrice / lastDay.close) - 1) * 100;
-      localResultPercent += forcedResult;
-      localDays += daysInTrade;
-      localTotalTrades++;
-      if (forcedResult >= 0) localPositiveTrades++;
-      else localNegativeTrades++;
-    }
-
-    if (localDays > 0) {
-      avgResultPerDaySum += localResultPercent / localDays; // среднее за срез
-    }
-
-    totalResultPercent += localResultPercent;
-    totalDays += localDays;
-    positiveTrades += localPositiveTrades;
-    negativeTrades += localNegativeTrades;
-    totalTrades += localTotalTrades;
   }
 
-  const avgResultPerDay = avgResultPerDaySum / 8; // среднее арифметическое по срезам
+  if (inTrade && data.length > 0) {
+    const lastDay = data[data.length - 1];
+    const forcedResult = ((entryPrice / lastDay.close) - 1) * 100;
+    totalResultPercent += forcedResult;
+    totalDays += daysInTrade;
+    totalTrades++;
+    if (forcedResult >= 0) positiveTrades++;
+    else negativeTrades++;
+  }
+
+  // Среднее по 8 срезам
+  let avgResultPerDaySum = 0;
+  for (let start = 0; start < 8; start++) {
+    const slicedData = data.slice(start);
+    if (slicedData.length === 0) continue;
+
+    let sliceResultPercent = 0;
+    let sliceDays = 0;
+    let sliceInTrade = false;
+    let sliceEntryPrice = 0;
+    let sliceDaysInTrade = 0;
+
+    for (const day of slicedData) {
+      if (!sliceInTrade) {
+        sliceEntryPrice = day.open;
+        sliceInTrade = true;
+        sliceDaysInTrade = 1;
+      } else {
+        sliceDaysInTrade++;
+      }
+
+      if (sliceInTrade) {
+        if (day.high >= sliceEntryPrice * PROFIT_TARGET) {
+          sliceResultPercent -= lossPercent;
+          sliceDays += sliceDaysInTrade;
+          sliceInTrade = false;
+          continue;
+        }
+        if (day.low <= sliceEntryPrice * STOP_PROFIT) {
+          sliceResultPercent += profitPercent;
+          sliceDays += sliceDaysInTrade;
+          sliceInTrade = false;
+          continue;
+        }
+      }
+    }
+
+    if (sliceInTrade && slicedData.length > 0) {
+      const lastDay = slicedData[slicedData.length - 1];
+      const forcedResult = ((sliceEntryPrice / lastDay.close) - 1) * 100;
+      sliceResultPercent += forcedResult;
+      sliceDays += sliceDaysInTrade;
+    }
+
+    if (sliceDays > 0) {
+      avgResultPerDaySum += sliceResultPercent / sliceDays;
+    }
+  }
+
+  const avgResultPerDay = avgResultPerDaySum / 8;
   const successRate = (positiveTrades / totalTrades) * 100;
   const failureRate = (negativeTrades / totalTrades) * 100;
 
@@ -777,9 +836,6 @@ function runShortAdvancedSimulation(data, profitPercent, lossPercent) {
     failureRate,
   };
 }
-
-
-// ===== Новый эндпоинт с Половинной Покраской =====
 app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() }).single('file'), async (req, res) => {
   const { startDate, endDate, minSuccessLong, maxFailLong, minSuccessShort, maxFailShort } = req.body;
 
@@ -791,7 +847,6 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Результаты');
 
-    // Заголовки
     worksheet.addRow([
       'Тикер',
       'Лонг Дни', 'Лонг Плюс', 'Лонг Минус', 'Лонг % в день', 'Лонг Профит', 'Лонг Лосс',
@@ -825,7 +880,6 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
         let bestLong = null;
         let bestShort = null;
 
-        // Перебор Лонг
         for (let profit = 0.7; profit <= 10; profit += 0.1) {
           for (let loss = 5; loss <= 30; loss += 0.1) {
             const sim = runLongAdvancedSimulation(data, profit, loss);
@@ -840,7 +894,6 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
           }
         }
 
-        // Перебор Шорт
         for (let profit = 5; profit <= 30; profit += 0.1) {
           for (let loss = 0.7; loss <= 10; loss += 0.1) {
             const sim = runShortAdvancedSimulation(data, profit, loss);
@@ -871,19 +924,18 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
           bestShort ? bestShort.loss.toFixed(1) : '—'
         ]);
 
-        // Разделение цветов
-        const longColor = bestLong ? 'FFCCFFCC' : 'FFFFCCCC'; // Лонг
-        const shortColor = bestShort ? 'FFCCFFCC' : 'FFFFCCCC'; // Шорт
+        const longColor = bestLong ? 'FFCCFFCC' : 'FFFFCCCC';
+        const shortColor = bestShort ? 'FFCCFFCC' : 'FFFFCCCC';
 
         row.eachCell((cell, colNumber) => {
-          if (colNumber >= 2 && colNumber <= 7) { // Лонг-поля
+          if (colNumber >= 2 && colNumber <= 7) {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
               fgColor: { argb: longColor }
             };
           }
-          if (colNumber >= 8 && colNumber <= 13) { // Шорт-поля
+          if (colNumber >= 8 && colNumber <= 13) {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
