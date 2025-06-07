@@ -618,7 +618,6 @@ function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
   let negativeTrades = 0;
   let totalTrades = 0;
 
-  // Основной расчет по всем данным
   for (const day of data) {
     if (!inTrade) {
       entryPrice = day.open;
@@ -656,7 +655,6 @@ function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
     else negativeTrades++;
   }
 
-  // Среднее по 8 срезам
   let avgResultPerDaySum = 0;
   for (let start = 0; start < 8; start++) {
     const slicedData = data.slice(start);
@@ -677,14 +675,14 @@ function runLongAdvancedSimulation(data, profitPercent, lossPercent) {
         sliceDaysInTrade++;
       }
 
-      if (day.high >= sliceEntryPrice * PROFIT_TARGET) {
-        sliceResultPercent += profitPercent;
+      if (day.low <= sliceEntryPrice * STOP_LOSS) {
+        sliceResultPercent -= lossPercent;
         sliceDays += sliceDaysInTrade;
         sliceInTrade = false;
         continue;
       }
-      if (day.low <= sliceEntryPrice * STOP_LOSS) {
-        sliceResultPercent -= lossPercent;
+      if (day.high >= sliceEntryPrice * PROFIT_TARGET) {
+        sliceResultPercent += profitPercent;
         sliceDays += sliceDaysInTrade;
         sliceInTrade = false;
         continue;
@@ -872,13 +870,17 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
         let bestLong = null;
         let bestShort = null;
 
+        // Long поиск
         for (let profit = 0.7; profit <= 10; profit += 0.1) {
           for (let loss = 5; loss <= 30; loss += 0.1) {
             const sim = runLongAdvancedSimulation(data, profit, loss);
+
+            const minPositiveDays = sim.totalDays * minSuccessLong / 100;
+            const maxNegativeDays = sim.totalDays * maxFailLong / 100;
+
             if (
-              sim.successRate >= minSuccessLong &&
-              sim.failureRate <= maxFailLong &&
-              sim.positiveTrades >= (sim.totalDays * minSuccessLong / 100)
+              sim.positiveTrades >= minPositiveDays &&
+              sim.negativeTrades <= maxNegativeDays
             ) {
               if (!bestLong || sim.avgResultPerDay > bestLong.avgResultPerDay) {
                 bestLong = { profit, loss, ...sim };
@@ -887,13 +889,17 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
           }
         }
 
+        // Short поиск
         for (let profit = 5; profit <= 30; profit += 0.1) {
           for (let loss = 0.7; loss <= 10; loss += 0.1) {
             const sim = runShortAdvancedSimulation(data, profit, loss);
+
+            const minPositiveDays = sim.totalDays * minSuccessShort / 100;
+            const maxNegativeDays = sim.totalDays * maxFailShort / 100;
+
             if (
-              sim.successRate >= minSuccessShort &&
-              sim.failureRate <= maxFailShort &&
-              sim.positiveTrades >= (sim.totalDays * minSuccessShort / 100)
+              sim.positiveTrades >= minPositiveDays &&
+              sim.negativeTrades <= maxNegativeDays
             ) {
               if (!bestShort || sim.avgResultPerDay > bestShort.avgResultPerDay) {
                 bestShort = { profit, loss, ...sim };
@@ -953,6 +959,7 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
     res.status(500).json({ error: 'Ошибка при обработке файла' });
   }
 });
+
 
 
 
