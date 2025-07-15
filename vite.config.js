@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     host: true, // Позволяет доступ к серверу через публичный IP
-    port: 5173, // Укажите порт, если хотите задать конкретный
+    port: 5173,
+    allowedHosts: ['datafet.onrender.com'], // ✅ Добавлено для решения ошибки
   },
 });
