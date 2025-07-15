@@ -959,6 +959,84 @@ app.post('/api/batch-best-advanced', multer({ storage: multer.memoryStorage() })
     res.status(500).json({ error: 'Ошибка при обработке файла' });
   }
 });
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+router.post('/api/finviz', async (req, res) => {
+  const exchange = req.query.exchange;
+
+  if (!['nyse', 'nasdaq'].includes(exchange)) {
+    return res.status(400).json({ error: 'Укажите правильную биржу: nyse или nasdaq' });
+  }
+
+  const BASE_URL = {
+    nyse: 'https://finviz.com/screener.ashx?v=111&f=exch_nyse,ind_stocksonly,sh_avgvol_o300,sh_price_o5',
+    nasdaq: 'https://finviz.com/screener.ashx?v=111&f=exch_nasd,ind_stocksonly,sh_avgvol_o300,sh_price_o5',
+  }[exchange];
+
+  const OFFSETS = Array.from({ length: Math.ceil(1355 / 20) }, (_, i) => (i === 0 ? 1 : i * 20 + 1));
+  const CONCURRENCY = 5;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function scrapeOffset(page, offset) {
+    const url = offset === 1 ? BASE_URL : `${BASE_URL}&r=${offset}`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+    await sleep(3000);
+
+    const tickers = await page.$$eval(
+      'a[href*="quote.ashx?t="]',
+      links => Array.from(new Set(
+        links.map(a => a.textContent.trim()).filter(t => /^[A-Z]+$/.test(t) && t !== 'USA')
+      ))
+    );
+    return tickers;
+  }
+
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const pages = await Promise.all(Array.from({ length: CONCURRENCY }, () => browser.newPage()));
+
+    for (const page of pages) {
+      await page.setRequestInterception(true);
+      page.on('request', req => {
+        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType()))
+          req.abort();
+        else
+          req.continue();
+      });
+
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36');
+    }
+
+    const all = new Set();
+
+    for (let i = 0; i < OFFSETS.length; i += CONCURRENCY) {
+      const batch = OFFSETS.slice(i, i + CONCURRENCY);
+      console.log(`>>> [${exchange}] Scraping offsets: ${batch.join(', ')}`);
+      const results = await Promise.all(
+        batch.map((offset, idx) => scrapeOffset(pages[idx], offset))
+      );
+      results.forEach(arr => arr.forEach(t => all.add(t)));
+      console.log(`    → Accumulated [${exchange}]: ${all.size}`);
+    }
+
+    await browser.close();
+
+    const tickers = Array.from(all).filter(t => t !== 'USA');
+    const csv = tickers.join('\n');
+
+    res.setHeader('Content-Disposition', `attachment; filename=${exchange}_tickers.csv`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('Ошибка в эндпоинте /api/finviz:', err);
+    res.status(500).json({ error: 'Ошибка при сборе тикеров' });
+  }
+});
+
+export default router;
 
 
 

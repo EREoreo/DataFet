@@ -8,6 +8,7 @@ import BestLong from "./BestLong";
 import BestShort from "./BestShort";
 import BestComboBatch from "./BestComboBatch";
 import BestComboAdvanced from './BestComboAdvanced';
+import Finviz from "./Finviz";
 
 const CreateTable = () => {
   const [ticker, setTicker] = useState("");
@@ -191,6 +192,14 @@ BestComboBatch
 >
 Best Combo % per day
 </button>
+<button
+  className={`py-2 px-4 rounded-full w-full mb-4 ${
+    currentPage === "finviz" ? "bg-green-500" : "bg-white text-gray-800"
+  }`}
+  onClick={() => setCurrentPage("finviz")}
+>
+Finviz 
+</button>
 
       </aside>
 
@@ -275,7 +284,7 @@ Best Combo % per day
             </div>
           </>
         )}
-
+        {currentPage === "finviz" && <Finviz />}  
         {currentPage === "calculation" && <Calculation />}
         {currentPage === "short" && <Short />}
         {currentPage === "bestLong" && <BestLong />} 
