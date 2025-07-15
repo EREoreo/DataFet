@@ -8,6 +8,7 @@ import XLSX from 'xlsx';
 import { tmpdir } from 'os';
 import fs from 'fs/promises';
 import ExcelJS from 'exceljs';
+import puppeteer from 'puppeteer';
 
 dotenv.config();
 
